@@ -22,7 +22,7 @@
   
   !sanity  check
   if(n<=0) then
-  	write(*,*)'you have asked for ',n,'nodes'
+    write(*,*)'you have asked for ',n,'nodes'
       stop
   endif
   
@@ -34,15 +34,15 @@
   ISET=0
   
   do k=1,n
-  	if(present(i)) then
-		kl = 9373
-		ij = (i+(k-1))*45
-  	else
-		call system_clock(count=ij)
-      	ij = mod(ij + rand_instNS*100, 31328)+(k-1)*45
+    if(present(i)) then
+    kl = 9373
+    ij = (i+(k-1))*45
+    else
+    call system_clock(count=ij)
+        ij = mod(ij + rand_instNS*100, 31328)+(k-1)*45
             call date_and_time(time=fred)
-       	read (fred,'(e10.3)') klr
-       	kl = mod(int(klr*1000), 30081)       
+        read (fred,'(e10.3)') klr
+        kl = mod(int(klr*1000), 30081)       
       end if
 
       !write(*,'(" randomNS seeds:",1I6,",",1I6," rand_instNS:",1I4)")') ij,kl,rand_instNS
@@ -64,21 +64,21 @@
 
     id=idg+1
     if(ISET(id)==0) then
-	R=2
-	do while (R >=1.d0)
-		urv=ranmarns(id-1)
-		V1=2.d0*urv-1.d0
-		urv=ranmarns(id-1)
-		V2=2.d0*urv-1.d0
-		R=V1**2+V2**2
-	end do
-	FAC=sqrt(-2.d0*log(R)/R)
-	GSET(id)=V1*FAC
-	gaussian1ns=V2*FAC
-	ISET(id)=1
+  R=2
+  do while (R >=1.d0)
+    urv=ranmarns(id-1)
+    V1=2.d0*urv-1.d0
+    urv=ranmarns(id-1)
+    V2=2.d0*urv-1.d0
+    R=V1**2+V2**2
+  end do
+  FAC=sqrt(-2.d0*log(R)/R)
+  GSET(id)=V1*FAC
+  gaussian1ns=V2*FAC
+  ISET(id)=1
     else
-	gaussian1ns=GSET(id)
-	ISET(id)=0
+  gaussian1ns=GSET(id)
+  ISET(id)=0
     endif
    
   end function GAUSSIAN1NS
@@ -105,33 +105,33 @@
 !           6533892.0  14220222.0  7275067.0
 !           6172232.0  8354498.0   10633180.0
 
-	if(IJ<0) IJ=31328+IJ
-	if(IJ>31328) IJ=mod(IJ,31328)
-	if(KL<0) KL=30081+KL
-	if(KL>30081) KL=mod(KL,30081)
+  if(IJ<0) IJ=31328+IJ
+  if(IJ>31328) IJ=mod(IJ,31328)
+  if(KL<0) KL=30081+KL
+  if(KL>30081) KL=mod(KL,30081)
       
-  	if(IJ<0  .or.  IJ>31328  .or. KL<0  .or.  KL>30081 ) then
-		print '(A)', ' The first randomNS number seed must have a value  between 0 and 31328'
-		print '(A)',' The second seed must have a value between 0 and   30081'
-		stop
-  	endif
-  	I = mod(IJ/177, 177) + 2
-  	J = mod(IJ    , 177) + 2
-  	K = mod(KL/169, 178) + 1
-  	L = mod(KL,     169) 
-  	do II = 1, 97
-		S = 0.0
-		T = 0.5
-		do JJ = 1, 24
-			M = mod(mod(I*J, 179)*K, 179)
-            	I = J
-            	J = K
-            	K = M
-            	L = mod(53*L+1, 169)
-            	if (mod(L*M, 64)>=32) S = S + T
-            	T = 0.5 * T
-		enddo
-         	U(id,II) = S
+    if(IJ<0  .or.  IJ>31328  .or. KL<0  .or.  KL>30081 ) then
+    print '(A)', ' The first randomNS number seed must have a value  between 0 and 31328'
+    print '(A)',' The second seed must have a value between 0 and   30081'
+    stop
+    endif
+    I = mod(IJ/177, 177) + 2
+    J = mod(IJ    , 177) + 2
+    K = mod(KL/169, 178) + 1
+    L = mod(KL,     169) 
+    do II = 1, 97
+    S = 0.0
+    T = 0.5
+    do JJ = 1, 24
+      M = mod(mod(I*J, 179)*K, 179)
+              I = J
+              J = K
+              K = M
+              L = mod(53*L+1, 169)
+              if (mod(L*M, 64)>=32) S = S + T
+              T = 0.5 * T
+    enddo
+          U(id,II) = S
       enddo
       C(id) = 362436.0 / 16777216.0
       CD(id) = 7654321.0 / 16777216.0
@@ -148,21 +148,21 @@
 ! Florida State University Report: FSU-SCRI-87-50
 ! It was slightly modified by F. James to produce an array of pseudorandom
 ! numbers.
-	
+  
       id=idg+1
       
-	UNI = U(id,I97(id)) - U(id,J97(id))
-  	if(UNI<0.) UNI = UNI + 1.
-  	U(id,I97(id)) = UNI
-  	I97(id) = I97(id) - 1
-  	if(I97(id)==0) I97(id) = 97
-  	J97(id) = J97(id) - 1
-  	if(J97(id)==0) J97(id) = 97
-  	C(id) = C(id) - CD(id)
-  	if(C(id)<0.) C(id) = C(id) + CM(id)
-  	UNI = UNI - C(id)
-  	if(UNI<0.) UNI = UNI + 1. ! bug?
-  	ranmarns = UNI
+  UNI = U(id,I97(id)) - U(id,J97(id))
+    if(UNI<0.) UNI = UNI + 1.
+    U(id,I97(id)) = UNI
+    I97(id) = I97(id) - 1
+    if(I97(id)==0) I97(id) = 97
+    J97(id) = J97(id) - 1
+    if(J97(id)==0) J97(id) = 97
+    C(id) = C(id) - CD(id)
+    if(C(id)<0.) C(id) = C(id) + CM(id)
+    UNI = UNI - C(id)
+    if(UNI<0.) UNI = UNI + 1. ! bug?
+    ranmarns = UNI
       
   end function ranmarns
 

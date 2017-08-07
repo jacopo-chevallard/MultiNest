@@ -5,9 +5,9 @@ module utils1
   use RandomNS
   implicit none
   
-  	integer lwork,liwork
-  	!$OMP THREADPRIVATE(lwork,liwork)
-  	data lwork,liwork /1,1/
+    integer lwork,liwork
+    !$OMP THREADPRIVATE(lwork,liwork)
+    data lwork,liwork /1,1/
       logical setBlk
       !$OMP THREADPRIVATE(setBlk)
       data setBlk /.false./
@@ -60,44 +60,44 @@ contains
 !---------------------------------------------------------------------- 
   
  subroutine Diagonalize(a,diag,n,switch)
-	!Does m = U diag U^T, returning U in m
-	integer n,id
-	double precision a(n,n),diag(n)
-	logical switch
-	integer i,j,ierr,il,iu,m,isuppz(2*n)
-	double precision vl,vu,abstol,z(n,n)
-	double precision, dimension(:), allocatable :: work
-	integer, dimension(:), allocatable :: iwork
+  !Does m = U diag U^T, returning U in m
+  integer n,id
+  double precision a(n,n),diag(n)
+  logical switch
+  integer i,j,ierr,il,iu,m,isuppz(2*n)
+  double precision vl,vu,abstol,z(n,n)
+  double precision, dimension(:), allocatable :: work
+  integer, dimension(:), allocatable :: iwork
 
-	diag=0.
+  diag=0.
       abstol=0.
       
       id=0
       !$ id=omp_get_thread_num()
       
       if(.not.setBlk .or. switch) then
-      	if(id==0) then
-      		!find optimal block sizes
-      		allocate(work(1))
-            	allocate(iwork(1))
-            	lwork=-1
-            	liwork=-1
-		
-            	call DSYEVR( 'V', 'A', 'U', n, a, n, vl, vu, il, iu, &
-      		abstol, m, diag, Z, n, isuppz, work, lwork, iwork, liwork, ierr )
+        if(id==0) then
+          !find optimal block sizes
+          allocate(work(1))
+              allocate(iwork(1))
+              lwork=-1
+              liwork=-1
+    
+              call DSYEVR( 'V', 'A', 'U', n, a, n, vl, vu, il, iu, &
+          abstol, m, diag, Z, n, isuppz, work, lwork, iwork, liwork, ierr )
 
-            	lwork=int(work(1))
-            	liwork=iwork(1)
-            	deallocate(work,iwork)
-            	setBlk=.true.
-	else
-            	do
-                  	!$OMP FLUSH(setBlk)
-                  	if(setBlk) exit
-		enddo
-	end if
+              lwork=int(work(1))
+              liwork=iwork(1)
+              deallocate(work,iwork)
+              setBlk=.true.
+  else
+              do
+                    !$OMP FLUSH(setBlk)
+                    if(setBlk) exit
+    enddo
+  end if
       endif 
-      	
+        
       allocate(work(lwork),iwork(liwork))
       call DSYEVR( 'V', 'A', 'U', n, a, n, vl, vu, il, iu, &
       abstol, m, diag, Z, n, isuppz, work, lwork, iwork, liwork, ierr )
@@ -106,16 +106,16 @@ contains
     
       !check for inf & nan
       do i=1,n
-    	if(diag(i)/=diag(i) .or. diag(i)>huge(1d0)) then
-		diag=1d0
-		a=0d0
-		do j=1,n
-			a(j,j)=1d0
-		enddo
-		exit
-	endif
+      if(diag(i)/=diag(i) .or. diag(i)>huge(1d0)) then
+    diag=1d0
+    a=0d0
+    do j=1,n
+      a(j,j)=1d0
+    enddo
+    exit
+  endif
       enddo
-	  
+    
  end subroutine Diagonalize
 
 !---------------------------------------------------------------------- 
@@ -220,13 +220,13 @@ contains
     double precision temp_p(ndim,npt)
     
     do i=1,ndim
-	temp_p(i,1:npt)=pt(i,1:npt)-mean(i)
+  temp_p(i,1:npt)=pt(i,1:npt)-mean(i)
     enddo
     
     kmax=0d0
     do k=1,npt
-    	ptM(1,:)=temp_p(:,k)
-    	sf=MatMul(MatMul(ptM,inv_cov),Transpose(ptM))
+      ptM(1,:)=temp_p(:,k)
+      sf=MatMul(MatMul(ptM,inv_cov),Transpose(ptM))
         if(sf(1,1)>kmax) kmax=sf(1,1)
     enddo
     
@@ -234,20 +234,20 @@ contains
     
   end subroutine ScaleFactor
    
-!----------------------------------------------------------------------	
+!---------------------------------------------------------------------- 
  
  double precision function ptScaleFac(ndim,pt,meanx,invcovx)
- 	
-	implicit none
+  
+  implicit none
       
-	integer ndim!dimensionality
-      	double precision pt(ndim),point(1,ndim)!point to be checked
-      	double precision meanx(ndim),invcovx(ndim,ndim)!cluster attributes
-      	double precision kfac(1,1)!k factor of present point
+  integer ndim!dimensionality
+        double precision pt(ndim),point(1,ndim)!point to be checked
+        double precision meanx(ndim),invcovx(ndim,ndim)!cluster attributes
+        double precision kfac(1,1)!k factor of present point
       
-      	point(1,:)=pt(:)-meanx(:)
-	kfac=MATMUL(MATMUL(point,invcovx),Transpose(point))
-	ptScaleFac=kfac(1,1)
+        point(1,:)=pt(:)-meanx(:)
+  kfac=MATMUL(MATMUL(point,invcovx),Transpose(point))
+  ptScaleFac=kfac(1,1)
       
  end function ptScaleFac
   
@@ -291,7 +291,7 @@ contains
     
   end function MahaDis
    
-!----------------------------------------------------------------------	
+!---------------------------------------------------------------------- 
   
   double precision function ellVol(ndim,eval,k_fac)
     
@@ -306,14 +306,14 @@ contains
     ellVol=sqrt(product(eval)*(k_fac**dble(ndim)))
     
     if(mod(ndim,2)==0) then
-    	do i=2,ndim,2
-		ellVol=ellVol*2.d0*pi/dble(i)
-	enddo
+      do i=2,ndim,2
+    ellVol=ellVol*2.d0*pi/dble(i)
+  enddo
     else
-    	ellVol=ellVol*2.
-    	do i=3,ndim,2
-		ellVol=ellVol*2.d0*pi/dble(i)
-	enddo
+      ellVol=ellVol*2.
+      do i=3,ndim,2
+    ellVol=ellVol*2.d0*pi/dble(i)
+  enddo
     endif
   end function ellVol
 
@@ -361,7 +361,7 @@ contains
   !calculate the mean, covariance matrix, inv covariance matrix, evalues,
   !evects, det(cov) & enlargement of a given point set
   subroutine CalcEllProp(npt,ndim,pt,mean,covmat,invcov,tMat,evec,eval,detcov, &
-  	kfac,eff,vol,pVol,switch)
+    kfac,eff,vol,pVol,switch)
     implicit none
     !input variables
     integer npt !no. of points
@@ -385,15 +385,15 @@ contains
     
     !calculate the mean
     do i=1,ndim
-    	mean(i)=sum(pt(i,1:npt))/npt
+      mean(i)=sum(pt(i,1:npt))/npt
     enddo
     
     if(npt<=1) then
-    	kfac=0.d0
-	vol=0.d0
-	eval=0.d0
-	eff=1.d0
-	return
+      kfac=0.d0
+  vol=0.d0
+  eval=0.d0
+  eff=1.d0
+  return
     endif
     
     !calculate the covariance matrix
@@ -405,13 +405,13 @@ contains
     
     !eigenvalues of covariance matrix can't be zero
     do i=1,ndim-1
-	if(eval(i)<=0.d0) eval(1:i)=eval(i+1)/2.
+  if(eval(i)<=0.d0) eval(1:i)=eval(i+1)/2.
     enddo
-	
+  
     !if the no. of points is less than ndim+1 then set the eigenvalues of unconstrained 
     !dimensions equal to the min constrained eigenvalue
     if(npt<ndim+1) then
-	eval(1:ndim+1-npt)=eval(ndim+2-npt)
+  eval(1:ndim+1-npt)=eval(ndim+2-npt)
     endif
     
     !calculate the determinant of covariance matrix
@@ -428,10 +428,10 @@ contains
     
     !scale the enlargement factor if vol<pVol
     if(pVol>0d0 .and. vol<pVol) then
-    	eff=(pVol/vol)**(2.d0/ndim)
-	vol=pVol
+      eff=(pVol/vol)**(2.d0/ndim)
+  vol=pVol
     else
-    	eff=1.d0
+      eff=1.d0
     endif
         
     !calculate the transformation matrix
@@ -468,75 +468,75 @@ contains
     
     !calculate the mean
     do i=1,ndim
-    	mean(i)=sum(pt(i,1:npt))/npt
-    	sigma(i)=sum(pt(i,1:npt)**2)/npt
+      mean(i)=sum(pt(i,1:npt))/npt
+      sigma(i)=sum(pt(i,1:npt)**2)/npt
     enddo
     sigma(1:ndim)=sqrt(sigma(1:ndim)-mean(1:ndim)**2)
     
     if(npt==1) then
-	eval=0.d0
-	kfac=0.d0
-	return
+  eval=0.d0
+  kfac=0.d0
+  return
     endif
     
     !remove outliers
     if(npt>minPt) then
-	k=min(n,npt-minPt)
-	if(k>0) then
-		maxIndx(:,2)=0d0
-    		do i=1,npt
-			dist(i)=0d0
-			do j=1,ndim
-				dist(i)=dist(i)+abs((pt(j,i)-mean(j)))/sigma(j)
-			enddo
-		
-			do j=1,k+1
-				if(j==k+1) exit
-				if(dist(i)<maxIndx(j,2)) exit
-			enddo
-			j=j-1
-			if(j>0) then
-				maxIndx(1:j-1,:) = maxIndx(2:j,:)
-				maxIndx(j,1) = dble(i)
-				maxIndx(j,2) = dist(i)
-			endif
-    		enddo
-	
-		nOut=0
-		do i=1,k
-			if(maxIndx(i,2)>3d0) then
-				nOut=nOut+1
-				ptOut(nOut)=int(maxIndx(i,1))
-			endif
-		enddo
-	else
-		nOut=0
-	endif
-	
-	if(nOut>0) then
-		j=0
-		do i=1,npt
-			flag=.false.
-			do k=1,nOut
-				if(i == ptOut(k)) then
-					flag=.true.
-					exit
-				endif
-			enddo
-			
-			if(flag) cycle
-			
-			ptk(:,j+1)=pt(:,i)
-			j=j+1
-		enddo
-		nptk=npt-nOut
-	else
-		ptk=pt
-		nptk=npt
-	endif
+  k=min(n,npt-minPt)
+  if(k>0) then
+    maxIndx(:,2)=0d0
+        do i=1,npt
+      dist(i)=0d0
+      do j=1,ndim
+        dist(i)=dist(i)+abs((pt(j,i)-mean(j)))/sigma(j)
+      enddo
+    
+      do j=1,k+1
+        if(j==k+1) exit
+        if(dist(i)<maxIndx(j,2)) exit
+      enddo
+      j=j-1
+      if(j>0) then
+        maxIndx(1:j-1,:) = maxIndx(2:j,:)
+        maxIndx(j,1) = dble(i)
+        maxIndx(j,2) = dist(i)
+      endif
+        enddo
+  
+    nOut=0
+    do i=1,k
+      if(maxIndx(i,2)>3d0) then
+        nOut=nOut+1
+        ptOut(nOut)=int(maxIndx(i,1))
+      endif
+    enddo
+  else
+    nOut=0
+  endif
+  
+  if(nOut>0) then
+    j=0
+    do i=1,npt
+      flag=.false.
+      do k=1,nOut
+        if(i == ptOut(k)) then
+          flag=.true.
+          exit
+        endif
+      enddo
+      
+      if(flag) cycle
+      
+      ptk(:,j+1)=pt(:,i)
+      j=j+1
+    enddo
+    nptk=npt-nOut
+  else
+    ptk=pt
+    nptk=npt
+  endif
     else
-	ptk=pt
-	nptk=npt
+  ptk=pt
+  nptk=npt
     endif
     
     
@@ -548,13 +548,13 @@ contains
     call Diagonalize(evec,eval,ndim,.false.)
     !eigenvalues of covariance matrix can't be zero
     do i=1,ndim-1
-	if(eval(i)<=0.d0) eval(1:i)=eval(i+1)/2.
+  if(eval(i)<=0.d0) eval(1:i)=eval(i+1)/2.
     enddo
-	
+  
     !if the no. of points is less than ndim+1 then set the eigenvalues of unconstrained 
     !dimensions equal to the min constrained eigenvalue
     if(nptk<ndim+1) then
-	eval(1:ndim+1-nptk)=eval(ndim+2-nptk)
+  eval(1:ndim+1-nptk)=eval(ndim+2-nptk)
     endif
     
     !calculate the inverse of covariance matrix
@@ -572,46 +572,46 @@ contains
 
   !generate a point uniformly inside the given ellipsoid
   subroutine genPtInEll(ndim,mean,efac,TMat,id,pt)
-  	implicit none
-	
-	!input variables
-	integer ndim !dimensionality
-	double precision mean(ndim) !centroid of the given ellipsoid
-	double precision efac !enlargement factor of the given ellipsoid
-	double precision TMat(ndim,ndim) !transformation matrix of the given ellipsoid
-	integer id !processor id (for OpenMP)
-	!output variable
-	double precision pt(ndim)
-	!work variables
-	double precision u(1,ndim),pnewM(1,ndim)
-	
-	call genPtInSpheroid(ndim,u(1,:),id)
-	pnewM=MatMul(u,TMat)
-	pt(:)=sqrt(efac)*pnewM(1,:)+mean(:)
-	
+    implicit none
+  
+  !input variables
+  integer ndim !dimensionality
+  double precision mean(ndim) !centroid of the given ellipsoid
+  double precision efac !enlargement factor of the given ellipsoid
+  double precision TMat(ndim,ndim) !transformation matrix of the given ellipsoid
+  integer id !processor id (for OpenMP)
+  !output variable
+  double precision pt(ndim)
+  !work variables
+  double precision u(1,ndim),pnewM(1,ndim)
+  
+  call genPtInSpheroid(ndim,u(1,:),id)
+  pnewM=MatMul(u,TMat)
+  pt(:)=sqrt(efac)*pnewM(1,:)+mean(:)
+  
   end subroutine genPtInEll
 
 !----------------------------------------------------------------------
 
   !generate a point uniformly on the surface of the given ellipsoid
   subroutine genPtOnEll(ndim,mean,efac,TMat,id,pt)
-  	implicit none
-	
-	!input variables
-	integer ndim !dimensionality
-	double precision mean(ndim) !centroid of the given ellipsoid
-	double precision efac !enlargement factor of the given ellipsoid
-	double precision TMat(ndim,ndim) !transformation matrix of the given ellipsoid
-	integer id !processor id (for OpenMP)
-	!output variable
-	double precision pt(ndim)
-	!work variables
-	double precision u(1,ndim),pnewM(1,ndim)
-	
-	call genPtOnSpheroid(ndim,u(1,:),id)
-	pnewM=MatMul(u,TMat)
-	pt(:)=sqrt(efac)*pnewM(1,:)+mean(:)
-	
+    implicit none
+  
+  !input variables
+  integer ndim !dimensionality
+  double precision mean(ndim) !centroid of the given ellipsoid
+  double precision efac !enlargement factor of the given ellipsoid
+  double precision TMat(ndim,ndim) !transformation matrix of the given ellipsoid
+  integer id !processor id (for OpenMP)
+  !output variable
+  double precision pt(ndim)
+  !work variables
+  double precision u(1,ndim),pnewM(1,ndim)
+  
+  call genPtOnSpheroid(ndim,u(1,:),id)
+  pnewM=MatMul(u,TMat)
+  pt(:)=sqrt(efac)*pnewM(1,:)+mean(:)
+  
   end subroutine genPtOnEll
 
 !----------------------------------------------------------------------
@@ -620,108 +620,108 @@ contains
    !has been inserted
   subroutine evolveEll(a_r,npt,ndim,newpt,pts,mean,eval,invcov,kfac,eff,vol,pVol)
     
-	implicit none
-    	!input variables
-	integer a_r !if 0 then point rejected, 1 then point inserted
-	integer npt !no. of points after rejection or before insertion
-	integer ndim !dimensionality
-	double precision newpt(ndim) !point to be rejected/inserted
-	double precision pts(ndim,npt) !point set after rejection or before insertion
-	double precision mean(ndim) !centroid of the ellipsoid
-	double precision eval(ndim) !eigenvalues of the ellipsoid
-	double precision invcov(ndim,ndim) !inverse covariance matrix of the ellipsoid
-	double precision pVol !target volume
-	
-	!input/output variables
-	double precision kfac !input (output): point enlargement before (after) rejection/insertion
-	double precision eff !input (output): volume enlargement before (after) rejection/insertion
-	double precision vol !input (output): volume before (after) rejection/insertion
-	
-	!work variables
-	double precision new_pt(ndim,1),new_kfac
-	
-	
-	!sanity check
-	if(a_r < 0 .or. a_r > 1) then
-		write(*,*)"a_r in evolveEll cannot be", a_r
-		stop
-	endif
-	
-	if(pVol==0.d0 .or. eval(ndim)==0.d0) then
-		kfac=0.d0
-		eff=1.d0
-		vol=0.d0
-		return
-	endif
-	
-	
-	!point inserted
-	if(a_r==1) then
-		if(npt==0) then
-			write(*,*)"can not insert point in an ellipsoid with no points"
-			stop
-		else
-			!calculate the scale factor
-			new_pt(:,1)=newpt(:)
-			call ScaleFactor(1,ndim,new_pt,mean,invcov,new_kfac)
-			if(new_kfac>kfac) then
-				eff=eff*kfac/new_kfac
-				kfac=new_kfac
-				if(eff<1d0) then
-					eff=1d0
-					vol=ellVol(ndim,eval,kfac)
-				endif
-			endif
-			
-			!if the point has been inserted to a cluster with npt > 0 then kfac remains the same
-			!scale eff if target vol is bigger
-			if(pVol>vol) then
-    				eff=eff*(pVol/(vol))**(2.d0/dble(ndim))
-				vol=pVol
-			else
-				!if target vol is smaller then calculate the point volume & 
-				!scale eff if required
-				vol=ellVol(ndim,eval,kfac)
-			
-				!scale the enlargement factor if vol<pVol
-    				if(vol<pVol) then
-    					eff=max(1d0,(pVol/(vol))**(2.d0/dble(ndim)))
-					vol=pVol
-    				else
-    					eff=1.d0
-    				endif
-			endif
-		endif
-	else
-		if(npt==0) then
-			vol=0.d0
-			kfac=0.d0
-			eff=1.d0
-			return
-		endif
-		
-		!if the point has been rejected then figure out if its a boundary point
-		new_pt(:,1)=newpt(:)
-		call ScaleFactor(1,ndim,new_pt,mean,invcov,new_kfac)
-		
-		!if it's a boundary point then find new kfac
-		if(new_kfac==kfac) then
-			call ScaleFactor(npt,ndim,pts,mean,invcov,kfac)
-			if(kfac>new_kfac*eff .and. npt>1) then
-				write(*,*)"Problem in evoleell"
-				write(*,*)kfac,new_kfac,eff,npt
-				stop
-			endif
-			eff=1d0
-			vol=ellVol(ndim,eval,kfac)
-		endif
-		
-		!scale the enlargement factor if vol<pVol
-    		if(vol<pVol) then
-    			eff=(pVol/(vol))**(2.d0/dble(ndim))
-			vol=pVol
-    		endif
-	endif
+  implicit none
+      !input variables
+  integer a_r !if 0 then point rejected, 1 then point inserted
+  integer npt !no. of points after rejection or before insertion
+  integer ndim !dimensionality
+  double precision newpt(ndim) !point to be rejected/inserted
+  double precision pts(ndim,npt) !point set after rejection or before insertion
+  double precision mean(ndim) !centroid of the ellipsoid
+  double precision eval(ndim) !eigenvalues of the ellipsoid
+  double precision invcov(ndim,ndim) !inverse covariance matrix of the ellipsoid
+  double precision pVol !target volume
+  
+  !input/output variables
+  double precision kfac !input (output): point enlargement before (after) rejection/insertion
+  double precision eff !input (output): volume enlargement before (after) rejection/insertion
+  double precision vol !input (output): volume before (after) rejection/insertion
+  
+  !work variables
+  double precision new_pt(ndim,1),new_kfac
+  
+  
+  !sanity check
+  if(a_r < 0 .or. a_r > 1) then
+    write(*,*)"a_r in evolveEll cannot be", a_r
+    stop
+  endif
+  
+  if(pVol==0.d0 .or. eval(ndim)==0.d0) then
+    kfac=0.d0
+    eff=1.d0
+    vol=0.d0
+    return
+  endif
+  
+  
+  !point inserted
+  if(a_r==1) then
+    if(npt==0) then
+      write(*,*)"can not insert point in an ellipsoid with no points"
+      stop
+    else
+      !calculate the scale factor
+      new_pt(:,1)=newpt(:)
+      call ScaleFactor(1,ndim,new_pt,mean,invcov,new_kfac)
+      if(new_kfac>kfac) then
+        eff=eff*kfac/new_kfac
+        kfac=new_kfac
+        if(eff<1d0) then
+          eff=1d0
+          vol=ellVol(ndim,eval,kfac)
+        endif
+      endif
+      
+      !if the point has been inserted to a cluster with npt > 0 then kfac remains the same
+      !scale eff if target vol is bigger
+      if(pVol>vol) then
+            eff=eff*(pVol/(vol))**(2.d0/dble(ndim))
+        vol=pVol
+      else
+        !if target vol is smaller then calculate the point volume & 
+        !scale eff if required
+        vol=ellVol(ndim,eval,kfac)
+      
+        !scale the enlargement factor if vol<pVol
+            if(vol<pVol) then
+              eff=max(1d0,(pVol/(vol))**(2.d0/dble(ndim)))
+          vol=pVol
+            else
+              eff=1.d0
+            endif
+      endif
+    endif
+  else
+    if(npt==0) then
+      vol=0.d0
+      kfac=0.d0
+      eff=1.d0
+      return
+    endif
+    
+    !if the point has been rejected then figure out if its a boundary point
+    new_pt(:,1)=newpt(:)
+    call ScaleFactor(1,ndim,new_pt,mean,invcov,new_kfac)
+    
+    !if it's a boundary point then find new kfac
+    if(new_kfac==kfac) then
+      call ScaleFactor(npt,ndim,pts,mean,invcov,kfac)
+      if(kfac>new_kfac*eff .and. npt>1) then
+        write(*,*)"Problem in evoleell"
+        write(*,*)kfac,new_kfac,eff,npt
+        stop
+      endif
+      eff=1d0
+      vol=ellVol(ndim,eval,kfac)
+    endif
+    
+    !scale the enlargement factor if vol<pVol
+        if(vol<pVol) then
+          eff=(pVol/(vol))**(2.d0/dble(ndim))
+      vol=pVol
+        endif
+  endif
     
   end subroutine evolveEll
   
@@ -730,37 +730,37 @@ contains
    !enlarge an ellipsoid because of an additional point being inserted in it
   subroutine enlargeEll(ndim,newpt,mean,eval,invcov,kfac,eff,vol,pVol)
     
-	implicit none
-    	!input variables
-	integer ndim !dimensionality
-	double precision newpt(ndim) !point to be inserted
-	double precision mean(ndim) !centroid of the ellipsoid
-	double precision eval(ndim) !eigenvalues of the ellipsoid
-	double precision invcov(ndim,ndim) !inverse covariance matrix of the ellipsoid
-	double precision pVol !target volume
-	
-	!input/output variables
-	double precision kfac !input (output): point enlargement before (after) insertion
-	double precision eff !input (output): volume enlargement before (after) insertion
-	double precision vol !input (output): volume before (after) insertion
-	
-	!work variables
-	double precision new_pt(ndim,1),d1
-	
-	
-	!find new kfac
-	new_pt(:,1)=newpt(:)
-	call ScaleFactor(1,ndim,new_pt,mean,invcov,d1)
-	if(d1>kfac) then
-		kfac=d1
-		eff=1.d0
-		vol=ellVol(ndim,eval,kfac)
-	endif
-		
-	if(pVol>vol) then
-    		eff=eff*(pVol/(vol))**(2.d0/dble(ndim))
-		vol=pVol
-	endif
+  implicit none
+      !input variables
+  integer ndim !dimensionality
+  double precision newpt(ndim) !point to be inserted
+  double precision mean(ndim) !centroid of the ellipsoid
+  double precision eval(ndim) !eigenvalues of the ellipsoid
+  double precision invcov(ndim,ndim) !inverse covariance matrix of the ellipsoid
+  double precision pVol !target volume
+  
+  !input/output variables
+  double precision kfac !input (output): point enlargement before (after) insertion
+  double precision eff !input (output): volume enlargement before (after) insertion
+  double precision vol !input (output): volume before (after) insertion
+  
+  !work variables
+  double precision new_pt(ndim,1),d1
+  
+  
+  !find new kfac
+  new_pt(:,1)=newpt(:)
+  call ScaleFactor(1,ndim,new_pt,mean,invcov,d1)
+  if(d1>kfac) then
+    kfac=d1
+    eff=1.d0
+    vol=ellVol(ndim,eval,kfac)
+  endif
+    
+  if(pVol>vol) then
+        eff=eff*(pVol/(vol))**(2.d0/dble(ndim))
+    vol=pVol
+  endif
     
   end subroutine enlargeEll
   
@@ -778,10 +778,10 @@ contains
     inprior = .true.
     
     do i=1,np
-	if(p(i)<0d0 .or. p(i)>1d0) then
-          	inprior = .false.
-            	return
-	endif
+  if(p(i)<0d0 .or. p(i)>1d0) then
+            inprior = .false.
+              return
+  endif
     enddo
   
   end function inprior
@@ -790,7 +790,7 @@ contains
   
   !Returns the value gamma(ln[(xx)]) for xx > 0.
   FUNCTION gammln(xx) 
-  	REAL gammln,xx  
+    REAL gammln,xx  
       INTEGER j 
       DOUBLE PRECISION ser,stp,tmp,x,y,cof(6) 
       !Internal arithmetic will be done in double precision, 
@@ -806,7 +806,7 @@ contains
       tmp=(x+0.5d0)*log(tmp)-tmp 
       ser=1.000000000190015d0 
       do j=1,6 
-      	y=y+1.d0 
+        y=y+1.d0 
             ser=ser+cof(j)/y 
       enddo
       gammln=tmp+log(stp*ser/x) 
@@ -818,44 +818,44 @@ contains
   
   !USES gcf,gser Returns the incomplete gamma function P(a, x). 
   FUNCTION gammp(a,x) 
-  	REAL a,gammp,x 
-  	REAL gammcf,gamser,gln 
+    REAL a,gammp,x 
+    REAL gammcf,gamser,gln 
   
-  	if(x.lt.0..or.a.le.0.) then
-		write(*,*)  'bad arguments in gammp'
-		stop
-	endif
-  	if(x.lt.a+1.)then 
-  		!Use the series representation. 
-  		call gser(gamser,a,x,gln) 
-      	gammp=gamser
-  	else 
-  		!Use the continued fraction representation 
-      	call gcf(gammcf,a,x,gln) 
-      	gammp=1.-gammcf !and take its complement. 
-  	endif 
-  	return 
+    if(x.lt.0..or.a.le.0.) then
+    write(*,*)  'bad arguments in gammp'
+    stop
+  endif
+    if(x.lt.a+1.)then 
+      !Use the series representation. 
+      call gser(gamser,a,x,gln) 
+        gammp=gamser
+    else 
+      !Use the continued fraction representation 
+        call gcf(gammcf,a,x,gln) 
+        gammp=1.-gammcf !and take its complement. 
+    endif 
+    return 
   END FUNCTION gammp
   
   
   !USES gcf,gser Returns the incomplete gamma function Q(a,x)=1-P(a,x). 
   FUNCTION gammq(a,x) 
-  	REAL a,gammq,x 
+    REAL a,gammq,x 
       REAL gammcf,gamser,gln 
       
       if(x.lt.0..or.a.le.0.) then
-      	write(*,*) 'bad arguments in gammq'
-	stop
+        write(*,*) 'bad arguments in gammq'
+  stop
       endif
       if(x.lt.a+1.)then 
-      	!Use the series representation 
-      	call gser(gamser,a,x,gln) 
+        !Use the series representation 
+        call gser(gamser,a,x,gln) 
             gammq=1.-gamser !and take its complement. 
       else 
-      	!Use the continued fraction representation. 
+        !Use the continued fraction representation. 
             call gcf(gammcf,a,x,gln) 
             gammq=gammcf 
-	endif 
+  endif 
       return 
   END FUNCTION gammq
   
@@ -864,7 +864,7 @@ contains
   !representation as gamser. 
   !Also returns ln (a) as gln. 
   SUBROUTINE gser(gamser,a,x,gln) 
-  	INTEGER ITMAX 
+    INTEGER ITMAX 
       REAL a,gamser,gln,x,EPS 
       PARAMETER (ITMAX=100,EPS=3.e-7) 
       INTEGER n 
@@ -872,7 +872,7 @@ contains
       
       gln=gammln(a) 
       if(x.le.0.)then 
-      	if(x.lt.0.) write(*,*)  'x < 0 in gser'  
+        if(x.lt.0.) write(*,*)  'x < 0 in gser'  
             gamser=0. 
             return 
       endif 
@@ -880,14 +880,14 @@ contains
       sum=1./a 
       del=sum 
       do n=1,ITMAX 
-      	ap=ap+1. 
+        ap=ap+1. 
             del=del*x/ap 
             sum=sum+del 
             if(abs(del).lt.abs(sum)*EPS)goto 91 
       enddo
       write(*,*)  'a too large, ITMAX too small in gser'  
     91 gamser=sum*exp(-x+a*log(x)-gln) 
-    	return 
+      return 
   END SUBROUTINE gser
    
    
@@ -897,8 +897,8 @@ contains
   !EPS is the relative accuracy; FPMIN is a number near the smallest representable 
   !floating-point number.  
   SUBROUTINE gcf(gammcf,a,x,gln) 
-  	INTEGER ITMAX 
-  	REAL a,gammcf,gln,x,EPS,FPMIN 
+    INTEGER ITMAX 
+    REAL a,gammcf,gln,x,EPS,FPMIN 
       PARAMETER (ITMAX=100,EPS=3.e-7,FPMIN=1.e-30) 
       INTEGER i 
       REAL an,b,c,d,del,h 
@@ -909,7 +909,7 @@ contains
       d=1./b 
       h=d 
       do i=1,ITMAX !Iterate to convergence. 
-      	an=-i*(i-a) 
+        an=-i*(i-a) 
             b=b+2. 
             d=an*d+b 
             if(abs(d).lt.FPMIN)d=FPMIN 
@@ -919,35 +919,35 @@ contains
             del=d*c
             h=h*del 
             if(abs(del-1.).lt.EPS)goto 91 
-	enddo
+  enddo
       write(*,*)  'a too large, ITMAX too small in gcf'  
    91 gammcf=exp(-x+a*log(x)-gln)*h !Put factors in front. 
-   	return
+    return
   END SUBROUTINE gcf
   
   
   !USES gammp Returns the error function erf(x). 
   FUNCTION erf(x) 
-  	REAL erf,x
+    REAL erf,x
       
       if(x.lt.0.)then 
-      	erf=-gammp(.5,x**2) 
+        erf=-gammp(.5,x**2) 
       else 
-      	erf=gammp(.5,x**2) 
+        erf=gammp(.5,x**2) 
       endif 
       return 
   END FUNCTION erf
   
   
   double precision function stNormalCDF(x)
-  	double precision x
+    double precision x
      
-     	if(x>6.) then
-      	stNormalCDF=1.
+      if(x>6.) then
+        stNormalCDF=1.
       else if(x<-6.) then
-      	stNormalCDF=0.
-	else
-      	stNormalCDF=0.5*(1.+erf(real(x)/1.41421356))
+        stNormalCDF=0.
+  else
+        stNormalCDF=0.5*(1.+erf(real(x)/1.41421356))
       end if
       
   end function stNormalCDF
@@ -962,29 +962,29 @@ contains
 
     binSearch = 1
     if(npt==0) then
-      	return
+        return
     elseif(x>=array(1)) then
-      	return
+        return
     end if
     if(x<=array(npt)) then
-    	binSearch=npt+1
+      binSearch=npt+1
       return
     end if
     sp=1
     ep=npt
     do
-    	if(sp==ep) return
-	if(x>array((ep+sp)/2)) then
-		ep=(ep+sp)/2
-		binSearch=ep
-	elseif(x<array((ep+sp)/2)) then
-		sp=(ep+sp)/2+1
-		binSearch=sp
-	else
-		ep=(ep+sp)/2
-		binSearch=ep+1
+      if(sp==ep) return
+  if(x>array((ep+sp)/2)) then
+    ep=(ep+sp)/2
+    binSearch=ep
+  elseif(x<array((ep+sp)/2)) then
+    sp=(ep+sp)/2+1
+    binSearch=sp
+  else
+    ep=(ep+sp)/2
+    binSearch=ep+1
             return
-	end if
+  end if
     end do
     
   end function binSearch
@@ -992,31 +992,31 @@ contains
 !----------------------------------------------------------------------
 
   subroutine piksrt(n,n1,arr,arr1)
-  	integer n,n1
-  	double precision arr(n)
-  	double precision arr1(n1,n)
-  	integer i,j
-  	double precision a
-  	double precision a1(n1)
-  	do j=2,n
-     		a=arr(j)
-     		a1(1:n1)=arr1(1:n1,j)
-     		do i=j-1,1,-1
-        		if(arr(i).le.a) goto 10
-        			arr(i+1)=arr(i)
-				arr1(1:n1,i+1)=arr1(1:n1,i)
-     		end do
-     		i=0
-10     	arr(i+1)=a
-      	arr1(1:n1,i+1)=a1(1:n1)
-  	end do
-  	return
+    integer n,n1
+    double precision arr(n)
+    double precision arr1(n1,n)
+    integer i,j
+    double precision a
+    double precision a1(n1)
+    do j=2,n
+        a=arr(j)
+        a1(1:n1)=arr1(1:n1,j)
+        do i=j-1,1,-1
+            if(arr(i).le.a) goto 10
+              arr(i+1)=arr(i)
+        arr1(1:n1,i+1)=arr1(1:n1,i)
+        end do
+        i=0
+10      arr(i+1)=a
+        arr1(1:n1,i+1)=a1(1:n1)
+    end do
+    return
   end subroutine piksrt
 
 !----------------------------------------------------------------------
   !calculation the multivariate normal function
   double precision function mNormalF(d,x,mu,C)
-  	integer d !dimension
+    integer d !dimension
       double precision x(d) !data vector
       double precision mu(d) !mean
       double precision C(d,d) !covariance matrix
@@ -1037,21 +1037,21 @@ contains
       L=C
       call DPOTRF('L',d,L,d,INFO)
       
-	!Compute chi-squared as the dot product b^T b, where
-	!Lb=a and a is the vector of residuals
+  !Compute chi-squared as the dot product b^T b, where
+  !Lb=a and a is the vector of residuals
       !(x-mu)^T.C^-1.(x-mu)=b^T.b
       !where L.b=(x-mu) & C=L^T.L
-	a(1:d)=x(1:d)-mu(1:d)
-	do i=1,d
-      	b(i)=(a(i)-sum(L(i,1:i-1)*b(1:i-1)))/L(i,i)
-	end do
+  a(1:d)=x(1:d)-mu(1:d)
+  do i=1,d
+        b(i)=(a(i)-sum(L(i,1:i-1)*b(1:i-1)))/L(i,i)
+  end do
       Chisq=sum(b(1:d)**2.)
       
       !square root of det(C)
       sqrD=1.
       do i=1,d
-      	sqrD=sqrD*L(i,i)
-	end do
+        sqrD=sqrD*L(i,i)
+  end do
       
       !calculate the multivariate normal function
       mNormalF=exp(-Chisq/2.)/(sqrD*(TwoPi**(d/2.)))
@@ -1061,7 +1061,7 @@ contains
 !----------------------------------------------------------------------
   !calculation the cumulative Gaussian mixture probability in 1-D
   double precision function cGaussMix(nClstr,pPt,pMean,pCov,wt)
-  	integer nClstr !no. of cluster
+    integer nClstr !no. of cluster
       double precision pPt !point
       double precision pMean(nClstr),pCov(nClstr) !projected mean & variance of clusters
       double precision wt(nClstr)
@@ -1070,16 +1070,16 @@ contains
       
       cGaussMix=0.
       do i=1,nClstr
-      	z=(pPt-pMean(i))/sqrt(pCov(i))
+        z=(pPt-pMean(i))/sqrt(pCov(i))
             cGaussMix=cGaussMix+wt(i)*stNormalCDF(z)
-	end do
+  end do
       
   end function cGaussMix
 
 !---------------------------------------------------------------------- 
  
  logical function ptIn1Ell(ndim,pt,meanx,invcovx,kfacx)
- 	
+  
       implicit none
       
       integer ndim
@@ -1095,7 +1095,7 @@ contains
       point(1,:)=pt(:)
       call ScaleFactor(1,ndim,point,meanx,invcovx,kfac)
       if(kfac<kfacx .or. abs(kfac-kfacx)<0.0001) then
-	ptIn1Ell=.true.
+  ptIn1Ell=.true.
       endif
       
  end function ptIn1Ell
@@ -1103,7 +1103,7 @@ contains
 !----------------------------------------------------------------------
  
  subroutine ceffEvolve(ndim,vol,eff,npt)
- 	
+  
       implicit none
       
       !input variables
@@ -1118,9 +1118,9 @@ contains
       double precision d1
       
       if(eff>1d0) then
-      	d1=eff
-      	eff=max(1d0,eff*exp(-2d0/dble(npt*ndim)))
-      	vol=vol*((eff/d1)**(dble(ndim)/2d0))
+        d1=eff
+        eff=max(1d0,eff*exp(-2d0/dble(npt*ndim)))
+        vol=vol*((eff/d1)**(dble(ndim)/2d0))
       endif
       
       
