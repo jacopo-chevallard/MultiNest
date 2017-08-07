@@ -6,13 +6,22 @@ module posterior
   
   implicit none
       
+  integer, parameter :: FILENAME_LENGTH = 512
+
   double precision, dimension(:,:,:), allocatable :: evdatp
+  !$OMP THREADPRIVATE(evdatp)
   integer, dimension(:), allocatable :: nbranchp,nPtPerNode,ncon,nSamp,clstrdNode
+  !$OMP THREADPRIVATE(nbranchp,nPtPerNode,ncon,nSamp,clstrdNode)
   double precision, dimension(:,:), allocatable :: branchp
+  !$OMP THREADPRIVATE(branchp)
   double precision, dimension(:,:), allocatable :: pts,pts2,consP,unconsP,pwt,pNwt
+  !$OMP THREADPRIVATE(pts,pts2,consP,unconsP,pwt,pNwt)
   logical, dimension(:), allocatable :: check
+  !$OMP THREADPRIVATE(check)
   integer nClst,nUncon
+  !$OMP THREADPRIVATE(nClst,nUncon)
   double precision, dimension(:,:), allocatable :: stMu,stSigma
+  !$OMP THREADPRIVATE(stMu,stSigma)
 
 contains 
   
@@ -25,7 +34,7 @@ contains
   	
 	double precision Ztol !null evidence
 	integer nIter !globff (total no. replacements)
-	character(LEN=100)root !base root
+	character(len=FILENAME_LENGTH)root !base root
 	integer nLpt !no. of live points
 	integer ndim !dimensionality
 	integer nCdim !no. of parameters to cluster on
@@ -38,8 +47,8 @@ contains
 	logical IS !importance sampling?
 	double precision IS_Z(2) !importance sampling log(Z) estimate & its standard deviation
 	logical ic_reme(ic_n)
-  	character(len=100) evfile,livefile,postfile,resumefile
-      	character(len=100) sepFile,statsFile,postfile4,strictSepFile,summaryFile
+  	character(len=FILENAME_LENGTH) evfile,livefile,postfile,resumefile
+      	character(len=FILENAME_LENGTH) sepFile,statsFile,postfile4,strictSepFile,summaryFile
   	character(len=32) fmt,fmt2
       	logical l1
       	double precision d1,d2,urv
@@ -54,16 +63,16 @@ contains
       	double precision, dimension(:), allocatable :: ic_zold,llike !local evidence
 	
 	! parameters for dumper
-	double precision, pointer :: physLive(:,:), posterior(:,:), paramConstr(:)
+	double precision, allocatable :: physLive(:,:), posterior(:,:), paramConstr(:)
 	double precision maxLogLike, logZ, INSlogZ, logZerr
-	integer nSamples
+	integer nSamples, un_55, un_56, un_57, un_58
 	
 	INTERFACE
 		!the user dumper function
     		subroutine dumper(nSamples, nlive, nPar, physLive, posterior, paramConstr, maxLogLike, logZ, INSlogZ, logZerr, context_pass)
-			integer nSamples, nlive, nPar, context_pass
-			double precision, pointer :: physLive(:,:), posterior(:,:), paramConstr(:)
-			double precision maxLogLike, logZ, INSlogZ, logZerr
+			integer, intent(in) :: nSamples, nlive, nPar, context_pass
+			double precision, allocatable, intent(in) :: physLive(:,:), posterior(:,:), paramConstr(:)
+			double precision, intent(in)  :: maxLogLike, logZ, INSlogZ, logZerr
 		end subroutine dumper
 	end INTERFACE
 	
@@ -147,7 +156,7 @@ contains
       	lognpost=0.d0
 	if(outfile) then
       		!read the ev.dat file & calculate the probability weights
-      		open(unit=55,file=evfile,status='old')
+      		call safe_open_MN(unit=un_55,file=evfile,status='old')
 	endif
 	i=0
     	do
@@ -156,7 +165,7 @@ contains
 		
 			!end of file?
         		if(ios<0) then
-				close(55)
+				close(un_55)
 				exit
 			endif
 		else
@@ -207,8 +216,8 @@ contains
 	
       	!write the global posterior files
 	if(outfile) then
-      		open(55,file=postfile,form='formatted',status='replace')
-      		open(56,file=postfile4,form='formatted',status='replace')
+      		call safe_open_MN(unit=un_55,file=postfile,form='formatted',status='replace')
+      		call safe_open_MN(unit=un_56,file=postfile4,form='formatted',status='replace')
       		write(fmt,'(a,i4,a)')  '(',nPar+2,'E28.18)'
       		write(fmt2,'(a,i4,a)')  '(',nPar+1,'E28.18)'
 	endif
@@ -227,7 +236,7 @@ contains
 			paramConstr(nPar+1:2*nPar) = paramConstr(nPar+1:2*nPar) + (evdatp(i, j, 1:nPar)**2.0) * wt(i,j)
 			
             		if(wt(i,j)>1.d-99) then
-            			if(outfile) write(55,fmt) wt(i,j),-2.d0*evdatp(i,j,nPar+1),evdatp(i,j,1:nPar)
+            			if(outfile) write(un_55,fmt) wt(i,j),-2.d0*evdatp(i,j,nPar+1),evdatp(i,j,1:nPar)
                   	
       				!find the multiplicity
       				d1=wt(i,j)*npost
@@ -240,7 +249,7 @@ contains
         	    		if(urv<=d2) k=k+1
 				if(outfile) then
       					do i1=1,k
-            					write(56,fmt) evdatp(i,j,1:nPar+1)
+            					write(un_56,fmt) evdatp(i,j,1:nPar+1)
             				enddo
 				endif
 			endif
@@ -253,13 +262,13 @@ contains
 	paramConstr(nPar*3+1:nPar*4) = posterior(indx,1:nPar)
 	
 	if(outfile) then
-      		close(55)
-      		close(56)
+      		close(un_55)
+      		close(un_56)
       			
-		open(unit=57,file=statsFile,form='formatted',status='replace')
+		call safe_open_MN(unit=un_57,file=statsFile,form='formatted',status='replace')
       		!stats file
-		write(57,'(a,E28.18,a,E28.18)')		"Nested Sampling Global Log-Evidence           :",gzloc,"  +/-",sqrt(ginfoloc/dble(nLpt))
-		if( IS ) write(57,'(a,E28.18,a,E28.18)')"Nested Importance Sampling Global Log-Evidence:",IS_Z(1),"  +/-",IS_Z(2)
+		write(un_57,'(a,E28.18,a,E28.18)')		"Nested Sampling Global Log-Evidence           :",gzloc,"  +/-",sqrt(ginfoloc/dble(nLpt))
+		if( IS ) write(un_57,'(a,E28.18,a,E28.18)')"Nested Importance Sampling Global Log-Evidence:",IS_Z(1),"  +/-",IS_Z(2)
 	      		
 		!now the separated posterior samples
 	      
@@ -332,31 +341,31 @@ contains
 		
 		!open the output file
 		if(multimodal .and. outfile) then
-			!open(unit=56,file=strictSepFile,form='formatted',status='replace')
-	      		open(unit=55,file=sepFile,form='formatted',status='replace')
-			write(57,'(a)')
-	      		write(57,'(a)')"Local Mode Properties"
-	      		write(57,'(a)')"-------------------------------------------"
-	      		write(57,'(a)')
-			write(57,'(a,i12)')"Total Modes Found:",nClst
+			!call safe_open_MN(unit=un_56,file=strictSepFile,form='formatted',status='replace')
+	      		call safe_open_MN(unit=un_55,file=sepFile,form='formatted',status='replace')
+			write(un_57,'(a)')
+	      		write(un_57,'(a)')"Local Mode Properties"
+	      		write(un_57,'(a)')"-------------------------------------------"
+	      		write(un_57,'(a)')
+			write(un_57,'(a,i12)')"Total Modes Found:",nClst
 		endif
 		
-		open(unit=58,file=summaryFile,status='unknown')
+		call safe_open_MN(unit=un_58,file=summaryFile,status='unknown')
 		if( IS ) then
 			write(fmt,'(a,i4,a)')  '(',nPar*4+4,'E28.18)'
-			write(58,fmt)paramConstr(1:nPar),paramConstr(nPar+1:2*nPar),paramConstr(nPar*2+1:nPar*3), &
+			write(un_58,fmt)paramConstr(1:nPar),paramConstr(nPar+1:2*nPar),paramConstr(nPar*2+1:nPar*3), &
 			paramConstr(nPar*3+1:nPar*4),globZ,maxLogLike,IS_Z
 		else
 			write(fmt,'(a,i4,a)')  '(',nPar*4+2,'E28.18)'
-			write(58,fmt)paramConstr(1:nPar),paramConstr(nPar+1:2*nPar),paramConstr(nPar*2+1:nPar*3), &
+			write(un_58,fmt)paramConstr(1:nPar),paramConstr(nPar+1:2*nPar),paramConstr(nPar*2+1:nPar*3), &
 			paramConstr(nPar*3+1:nPar*4),globZ,maxLogLike
 		endif
 		call genSepFiles(k,nPar,nClst,Ztol,pts,pNwt(1:k,1:nClst),nCon(1:nClst),ic_zloc(1:nClst), &
 		ic_infoloc(1:nClst), ic_nptloc(1:nClst),55,56,57,58,multimodal)
-		close(58)
+		close(un_58)
 		
-	      	if(multimodal) close(55)
-	      	close(57)
+	      	if(multimodal) close(un_55)
+	      	close(un_57)
 	endif
 	
 	!error on global evidence

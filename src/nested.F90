@@ -3,6 +3,9 @@
 ! Farhan Feroz
 
 module Nested
+
+  use, intrinsic :: iso_fortran_env, only : error_unit, output_unit
+
   use utils1
   use kmeans_clstr
   use xmeans_clstr
@@ -13,51 +16,83 @@ module Nested
 #ifdef MPI
   include 'mpif.h'
   integer mpi_status(MPI_STATUS_SIZE), errcode
+  !$OMP THREADPRIVATE (mpi_status, errcode)
 #endif
+
   integer my_rank
+  !$OMP THREADPRIVATE (my_rank)
   integer maxCls,maxeCls
+  !$OMP THREADPRIVATE(maxCls,maxeCls)
   integer mpi_nthreads !total no. of mpi processors
+  !$OMP THREADPRIVATE(mpi_nthreads )
   integer min_pt,totPar
+  !$OMP THREADPRIVATE(min_pt,totPar)
   integer nCdims !total no. of parameters on which clustering should be done
+  !$OMP THREADPRIVATE(nCdims )
   integer nlive ! Number of live points
+  !$OMP THREADPRIVATE(nlive )
   integer ndims ! Number of dimensions
+  !$OMP THREADPRIVATE(ndims )
   integer nsc_def !no. of iterations per every sub-clustering step
+  !$OMP THREADPRIVATE(nsc_def )
   integer updInt !update interval
+  !$OMP THREADPRIVATE(updInt )
   double precision Ztol !lowest local evidence for which samples to produce
+  !$OMP THREADPRIVATE(Ztol )
   double precision tol ! tolerance at end
+  !$OMP THREADPRIVATE(tol )
   double precision ef
+  !$OMP THREADPRIVATE(ef)
   logical multimodal ! multimodal or unimodal sampling
+  !$OMP THREADPRIVATE(multimodal )
   logical ceff ! constant efficiency?
+  !$OMP THREADPRIVATE(ceff)
   integer numlike,globff
+  !$OMP THREADPRIVATE(numlike,globff)
   double precision logZero
+  !$OMP THREADPRIVATE(logZero)
   integer maxIter
+  !$OMP THREADPRIVATE(maxIter)
   logical fback,resumeFlag,dlive,genLive,dino
+  !$OMP THREADPRIVATE(fback,resumeFlag,dlive,genLive,dino)
   !output files name
-  character(LEN=100)physname,broot,rname,resumename,livename,evname,IS_Files(3)
+  character(LEN=FILENAME_LENGTH)physname,broot,rname,resumename,livename,evname,IS_Files(3)
+  !$OMP THREADPRIVATE(physname,broot,rname,resumename,livename,evname,IS_Files)
   !output file units
   integer u_ev,u_resume,u_phys,u_live,u_IS(3)
+  !$OMP THREADPRIVATE(u_ev,u_resume,u_phys,u_live,u_IS)
   double precision gZ,ginfo !total log(evidence) & info
+  !$OMP THREADPRIVATE(gZ,ginfo)
   integer count,sCount
+  !$OMP THREADPRIVATE(count,sCount)
   logical, dimension(:), allocatable :: pWrap
+  !$OMP THREADPRIVATE(pWrap)
   logical mWrap,aWrap !whether to do wraparound for mode separation
+  !$OMP THREADPRIVATE(mWrap,aWrap )
   logical debug, prior_warning, resume, outfile
+  !$OMP THREADPRIVATE(debug, prior_warning, resume, outfile)
   !importance sampling
   logical :: IS = .true.
+  !$OMP THREADPRIVATE(IS)
   logical bogus
+  !$OMP THREADPRIVATE(bogus)
 
 contains
   
   subroutine nestRun(nest_IS,nest_mmodal,nest_ceff,nest_nlive,nest_tol,nest_ef,nest_ndims,nest_totPar,nest_nCdims,maxClst, &
   nest_updInt,nest_Ztol,nest_root,seed,nest_pWrap,nest_fb,nest_resume,nest_outfile,initMPI,nest_logZero,nest_maxIter, &
-  loglike,dumper,context)
+  loglike,dumper,context, err_unit, out_unit)
         
   	implicit none
         
 	integer nest_ndims,nest_nlive,nest_updInt,context,seed,i
 	integer maxClst,nest_nsc,nest_totPar,nest_nCdims,nest_pWrap(*),nest_maxIter
 	logical nest_IS,nest_mmodal,nest_fb,nest_resume,nest_ceff,nest_outfile,initMPI
-	character(LEN=100) nest_root
+	character(LEN=FILENAME_LENGTH) nest_root
 	double precision nest_tol,nest_ef,nest_Ztol,nest_logZero
+  integer, intent(in), optional :: err_unit, out_unit
+
+  integer :: err_unit_, out_unit_
 	
 	INTERFACE
     		!the likelihood function
@@ -70,18 +105,24 @@ contains
 	INTERFACE
 		!the user dumper function
     		subroutine dumper(nSamples, nlive, nPar, physLive, posterior, paramConstr, maxLogLike, logZ, INSlogZ, logZerr, context_pass)
-			integer nSamples, nlive, nPar, context_pass
-			double precision, pointer :: physLive(:,:), posterior(:,:), paramConstr(:)
-			double precision maxLogLike, logZ, INSlogZ, logZerr
+			integer, intent(in) :: nSamples, nlive, nPar, context_pass
+			double precision, allocatable, intent(in) :: physLive(:,:), posterior(:,:), paramConstr(:)
+			double precision, intent(in)  :: maxLogLike, logZ, INSlogZ, logZerr
 		end subroutine dumper
 	end INTERFACE
+
+  err_unit_ = error_unit
+  if (present(err_unit)) err_unit_ = err_unit
+
+  out_unit_ = output_unit
+  if (present(out_unit)) out_unit_ = out_unit
 	
 #ifdef MPI
 	if( initMPI ) then
 		!MPI initializations
 		call MPI_INIT(errcode)
 		if (errcode/=MPI_SUCCESS) then
-     			write(*,*)'Error starting MPI. Terminating.'
+     			write(err_unit_,*)'Error starting MPI. Terminating.'
      			call MPI_ABORT(MPI_COMM_WORLD,errcode)
   		end if
 	endif
@@ -93,7 +134,7 @@ contains
 #endif
 	bogus = .false.
 	nest_nsc=50
-      	nlive=nest_nlive
+  nlive=nest_nlive
 	Ztol=nest_Ztol
 	updInt=nest_updInt
 	logZero=nest_logZero
@@ -101,7 +142,7 @@ contains
 	if(maxIter<=0) maxIter=huge(1)
 	
 	ndims=nest_ndims
-      	totPar=nest_totPar
+  totPar=nest_totPar
 	nCdims=nest_nCdims
 	debug=.false.
 	prior_warning=.true.
@@ -109,43 +150,36 @@ contains
 	outfile=nest_outfile
 	if(.not.outfile) resume=.false.
 	
-      	if(nCdims>ndims) then
-		if(my_rank==0) then
-			write(*,*)"ERROR: nCdims can not be greater than ndims."
-			write(*,*)"Aborting"
-		endif
+  if(nCdims>ndims) then
+	  if(my_rank==0) then
+			write(err_unit_,*)"ERROR: nCdims can not be greater than ndims."
+			write(err_unit_,*)"Aborting"
+	  endif
 #ifdef MPI
 		call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
-            	stop
+    stop
 	endif
 	
 	if(my_rank==0) then
 		count=0
 		sCount=0
       	
-      		broot=nest_root
-      		rname = trim(broot)
-      		fback = nest_fb
-		
-      		!output file info
-      		!setup the output files
-      		resumename = trim(rname)//'resume.dat'
-      		physname = trim(rname)//'phys_live.points'
-      		livename = trim(rname)//'live.points'
-      		evname = trim(rname)//'ev.dat'
-      		u_ev=55
-		u_phys=57
-      		u_live=59
-		u_resume=61
+    broot=nest_root
+    rname = trim(broot)
+    fback = nest_fb
+
+    !output file info
+    !setup the output files
+    resumename = trim(rname)//'resume.dat'
+    physname = trim(rname)//'phys_live.points'
+    livename = trim(rname)//'live.points'
+    evname = trim(rname)//'ev.dat'
 		
 		if( IS ) then
 			IS_Files(1) = trim(rname)//'IS.points'
 			IS_Files(2) = trim(rname)//'IS.ptprob'
 			IS_Files(3) = trim(rname)//'IS.iterinfo'
-			u_IS(1) = 62
-			u_IS(2) = 63
-			u_IS(3) = 64
 		endif
 	endif
 	
@@ -162,11 +196,11 @@ contains
 		endif
 	enddo
 	IS = nest_IS
-      	multimodal=nest_mmodal
+  multimodal=nest_mmodal
 	if( IS ) multimodal = .false.
 	ceff=nest_ceff
-      	tol=nest_tol
-      	ef=nest_ef
+  tol=nest_tol
+  ef=nest_ef
 	if(ef>=1d6) then
 		dino=.false.
 		ef=1d0
@@ -174,13 +208,13 @@ contains
 	elseif(ceff) then
 		if(ef>1d0) then
 			if(my_rank==0) then
-				write(*,*)"ERROR: Can not undersample in constant efficiency mode."
-				write(*,*)"Aborting"
+				write(err_unit_,*)"ERROR: Can not undersample in constant efficiency mode."
+				write(err_unit_,*)"Aborting"
 			endif
 #ifdef MPI
 			call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
-            		stop
+      stop
 		endif
 		dino=.true.
 		min_pt=2
@@ -190,54 +224,54 @@ contains
 	endif
 	nsc_def=nest_nsc
 	      
-      	if(.not.multimodal) then
-      		maxCls=1
+  if(.not.multimodal) then
+    maxCls=1
 	else
-      		maxCls=maxClst*2
+    maxCls=maxClst*2
 	endif
-      
-      	maxeCls=nlive/min_pt
 
-      	if(seed<0) then
-		!take the seed from system clock
-        	call InitRandomNS(mpi_nthreads)
-      	else
-        	call InitRandomNS(mpi_nthreads,seed)
+  maxeCls=nlive/min_pt
+
+  if(seed<0) then
+!take the seed from system clock
+    call InitRandomNS(mpi_nthreads)
+  else
+    call InitRandomNS(mpi_nthreads,seed)
 	endif
 	
 	if(my_rank==0) then
-      		!set the resume flag to true if the resume file exists else to false
-      		if(resume) then
+    !set the resume flag to true if the resume file exists else to false
+    if(resume) then
 			inquire(file=resumename,exist=resumeFlag)
-			if(.not.resumeFlag) write(*,*)"MultiNest Warning: no resume file found, starting from scratch"
+			if(.not.resumeFlag) write(out_unit_,*)"MultiNest Warning: no resume file found, starting from scratch"
 		else
 			resumeFlag=.false.
 		endif
       
-		write(*,*)"*****************************************************"
-		write(*,*)"MultiNest v3.10"
-      		write(*,*)"Copyright Farhan Feroz & Mike Hobson"
-      		write(*,*)"Release Jul 2015"
-		write(*,*)
-      		write(*,'(a,i4)')" no. of live points = ",nest_nlive
-      		write(*,'(a,i4)')" dimensionality = ",nest_ndims
-		if(ceff) write(*,'(a)')" running in constant efficiency mode"
-      		if(resumeFlag) write(*,'(a)')" resuming from previous job"
-      		write(*,*)"*****************************************************"
+		write(out_unit_,*)"*****************************************************"
+		write(out_unit_,*)"MultiNest v3.10"
+    write(out_unit_,*)"Copyright Farhan Feroz & Mike Hobson"
+    write(out_unit_,*)"Release Jul 2015"
+		write(out_unit_,*)
+    write(out_unit_,'(a,i4)')" no. of live points = ",nest_nlive
+    write(out_unit_,'(a,i4)')" dimensionality = ",nest_ndims
+		if(ceff) write(out_unit_,'(a)')" running in constant efficiency mode"
+    if(resumeFlag) write(out_unit_,'(a)')" resuming from previous job"
+    write(out_unit_,*)"*****************************************************"
         
 		if (fback) write (*,*) 'Starting MultiNest'
 	
 	
-      		!create the output files
+    !create the output files
 		if(.not.resumeFlag .and. outfile) then
-			open(unit=u_ev,file=evname,status='replace')
+			call safe_open_MN(unit=u_ev,file=evname,status='replace')
 			close(u_ev)
 		endif
 	endif
 	
 	call Nestsample(loglike, dumper, context)
 	deallocate(pWrap)
-      	call killRandomNS()
+  call killRandomNS()
 #ifdef MPI
 	if( initMPI ) call MPI_FINALIZE(errcode)
 #endif
@@ -246,17 +280,18 @@ contains
 
 !----------------------------------------------------------------------
 
-  subroutine Nestsample(loglike, dumper, context)
+  subroutine Nestsample(loglike, dumper, context, err_unit, out_unit)
 	
 	implicit none
 	
 	integer context
+  integer, intent(in), optional :: err_unit, out_unit
 	double precision, allocatable :: p(:,:), phyP(:,:) !live points
 	double precision, allocatable :: l(:) !log-likelihood
 	double precision vnow1!current vol
 	double precision ltmp(totPar+2)
-	character(len=100) fmt
-	integer np,i,j,k,ios
+	character(len=FILENAME_LENGTH) fmt
+	integer np,i,j,k,ios, err_unit_, out_unit_
 	logical flag
 
 	
@@ -271,13 +306,19 @@ contains
 	INTERFACE
 		!the user dumper function
     		subroutine dumper(nSamples, nlive, nPar, physLive, posterior, paramConstr, maxLogLike, logZ, INSlogZ, logZerr, context_pass)
-			integer nSamples, nlive, nPar, context_pass
-			double precision, pointer :: physLive(:,:), posterior(:,:), paramConstr(:)
-			double precision maxLogLike, logZ, INSlogZ, logZerr
+			integer, intent(in) :: nSamples, nlive, nPar, context_pass
+			double precision, allocatable, intent(in) :: physLive(:,:), posterior(:,:), paramConstr(:)
+			double precision, intent(in)  :: maxLogLike, logZ, INSlogZ, logZerr
 		end subroutine dumper
 	end INTERFACE
 	
 	
+  err_unit_ = error_unit
+  if (present(err_unit)) err_unit_ = err_unit
+
+  out_unit_ = output_unit
+  if (present(out_unit)) out_unit_ = out_unit
+
 	allocate( p(ndims,nlive+1), phyP(totPar,nlive+1), l(nlive+1) )
 
 	if(my_rank==0) then
@@ -292,15 +333,15 @@ contains
 	
 		if(resumeflag) then
 			!check if the last job was aborted during the live points generation
-			open(unit=u_resume,file=resumename,status='old')
+			call safe_open_MN(unit=u_resume,file=resumename,status='old')
 			read(u_resume,*)genLive
 			
 			if( .not.genLive ) then
 				read(u_resume,*)i,j,j,j
 		
 				if( j /= nlive ) then
-				  	write(*,*)"ERROR: no. of live points in the resume file is not equal to the the no. passed to nestRun."
-					write(*,*)"Aborting"
+				  	write(err_unit_,*)"ERROR: no. of live points in the resume file is not equal to the the no. passed to nestRun."
+					write(err_unit_,*)"Aborting"
 #ifdef MPI
 					call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -311,7 +352,7 @@ contains
 		
 			if( .not.genLive ) then
 				j = 0
-				open(unit=u_ev,file=evname,status='old') 
+				call safe_open_MN(unit=u_ev,file=evname,status='old') 
 				write(fmt,'(a,i2.2,a)')  '(',totPar+2,'E28.18,i3)'
 				do
 					read(55,*,IOSTAT=ios) ltmp(1:totPar+2),k
@@ -325,8 +366,8 @@ contains
 				close(u_ev)
 			
 				if( j + nlive /= i ) then
-					write(*,*)"ERROR: no. of points in ev.dat file is not equal to the no. specified in resume file."
-					write(*,*)"Aborting"
+					write(err_unit_,*)"ERROR: no. of points in ev.dat file is not equal to the no. specified in resume file."
+					write(err_unit_,*)"Aborting"
 #ifdef MPI
 					call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -346,14 +387,14 @@ contains
 #endif
 	
 	if(genLive) then
-		if(my_rank==0 .and. fback) write(*,*) 'generating live points'
+		if(my_rank==0 .and. fback) write(out_unit_,*) 'generating live points'
 		
 		call gen_initial_live(p,phyP,l,loglike,dumper,context)
 	
 		if(my_rank==0 .and. .not.bogus) then
 			globff=nlive
 			numlike=nlive
-	  		if(fback) write(*,*) 'live points generated, starting sampling'
+	  		if(fback) write(out_unit_,*) 'live points generated, starting sampling'
 		endif
 	endif
 
@@ -361,15 +402,15 @@ contains
 	call MPI_BARRIER(MPI_COMM_WORLD,errcode)
 #endif
 	
-	if( .not.bogus ) call clusteredNest(p,phyP,l,loglike,dumper,context)
+	if( .not.bogus ) call clusteredNest(p,phyP,l,loglike,dumper,context,err_unit=err_unit, out_unit=out_unit)
 	
 	if( my_rank==0 ) then
 		if( .not.bogus ) then
-			write(*,*)"ln(ev)=",gZ,"+/-",sqrt(ginfo/dble(nlive))
-			write(*,'(a,i12)')' Total Likelihood Evaluations: ', numlike
-			write(*,*)"Sampling finished. Exiting MultiNest"
+			write(out_unit_,*)"ln(ev)=",gZ,"+/-",sqrt(ginfo/dble(nlive))
+			write(out_unit_,'(a,i12)')' Total Likelihood Evaluations: ', numlike
+			write(out_unit_,*)"Sampling finished. Exiting MultiNest"
 		else
-			write(*,*)"Exit signal received"
+			write(out_unit_,*)"Exit signal received"
 		endif
 		setBlk=.false.
 	endif
@@ -388,7 +429,7 @@ contains
     	double precision, allocatable :: pnewP(:,:), phyPnewP(:,:), lnewP(:)
     	double precision p(ndims,nlive+1), phyP(totPar,nlive+1), l(nlive+1)
     	integer id
-    	character(len=100) fmt,fmt2
+    	character(len=FILENAME_LENGTH) fmt,fmt2
 #ifdef MPI
 	double precision, allocatable ::  tmpl(:), tmpp(:,:), tmpphyP(:,:)
 	integer q
@@ -405,9 +446,9 @@ contains
 	INTERFACE
 		!the user dumper function
     		subroutine dumper(nSamples, nlive, nPar, physLive, posterior, paramConstr, maxLogLike, logZ, INSlogZ, logZerr, context_pass)
-			integer nSamples, nlive, nPar, context_pass
-			double precision, pointer :: physLive(:,:), posterior(:,:), paramConstr(:)
-			double precision maxLogLike, logZ, INSlogZ, logZerr
+			integer, intent(in) :: nSamples, nlive, nPar, context_pass
+			double precision, allocatable, intent(in) :: physLive(:,:), posterior(:,:), paramConstr(:)
+			double precision, intent(in)  :: maxLogLike, logZ, INSlogZ, logZerr
 		end subroutine dumper
 	end INTERFACE
 	
@@ -420,72 +461,73 @@ contains
 	if(my_rank==0) then
 	
 		if(outfile) then
-    			open(unit=u_resume,file=resumename,form='formatted',status='replace')
-    			write(u_resume,'(l2)')genLive
-    			close(u_resume)
-    			write(fmt,'(a,i5,a)')  '(',ndims+1,'E28.18)'
-    			write(fmt2,'(a,i5,a)')  '(',totPar+1,'E28.18,i4)'
+      call safe_open_MN(unit=u_resume,file=resumename,form='formatted',status='replace')
+      write(u_resume,'(l2)')genLive
+      close(u_resume)
+      write(fmt,'(a,i5,a)')  '(',ndims+1,'E28.18)'
+      write(fmt2,'(a,i5,a)')  '(',totPar+1,'E28.18,i4)'
 		endif
 
-    		id=0
-    		i=0
-    
-    		!resume from previous live points generation?
+    id=0
+    i=0
+
+    !resume from previous live points generation?
 		if(outfile) then
-	    		if(resumeflag) then
-	    			!read hypercube-live file
-				open(unit=u_live,file=livename,status='old')
+      if(resumeflag) then
+        !read hypercube-live file
+				call safe_open_MN(unit=u_live,file=livename,status='old')
 				do
-	      				i=i+1
+	        i=i+1
 					read(u_live,*,IOSTAT=iostatus) p(:,i),l(i)
-	            			if(iostatus<0) then
-	            				i=i-1
-	                  			if(i>nlive) then
-							write(*,*)"ERROR: more than ",nlive," points in the live points file."
-							write(*,*)"Aborting"
+	          if(iostatus<0) then
+	            i=i-1
+	            if(i>nlive) then
+							  write(*,*)"ERROR: more than ",nlive," points in the live points file."
+							  write(*,*)"Aborting"
 #ifdef MPI
 							call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
-	                        			stop
+	              stop
 						endif
-	                  			exit
+	          exit
 					endif
 				enddo
-	    			close(u_live)
+	    	close(u_live)
 	
 				if(i>0) then
 					!read physical live file
-					open(unit=u_phys,file=physname,status='old')
+					call safe_open_MN(unit=u_phys,file=physname,status='old')
 					do j=1,i
 						read(u_phys,*) phyP(:,j),l(j),idum
 					enddo
-	    				close(u_phys)
+	    		close(u_phys)
 				endif
 	    	
-	      			open(unit=u_live,file=livename,form='formatted',status='old',position='append')
-	    			open(unit=u_phys,file=physname,form='formatted',status='old',position='append')
-	    		else
-	      			open(unit=u_live,file=livename,form='formatted',status='replace')
-	    			open(unit=u_phys,file=physname,form='formatted',status='replace')
+	     	call safe_open_MN(unit=u_live,file=livename,form='formatted',status='old',position='append')
+	    	call safe_open_MN(unit=u_phys,file=physname,form='formatted',status='old',position='append')
+
+	    	else
+	        call safe_open_MN(unit=u_live,file=livename,form='formatted',status='replace')
+	    		call safe_open_MN(unit=u_phys,file=physname,form='formatted',status='replace')
 				
-				if( IS ) then
-	      				open(unit=u_IS(2),file=IS_Files(2),form='unformatted',access='sequential',status='replace')
-					write(u_IS(2))0,0,0
-					close(u_IS(2))
-	      				open(unit=u_IS(1),file=IS_Files(1),form='unformatted',access='sequential',status='replace')
-					close(u_IS(1))
-	      				open(unit=u_IS(3),file=IS_Files(3),form='unformatted',access='sequential',status='replace')
-					close(u_IS(3))
-				endif
-	    		endif
-		endif
+          if( IS ) then
+            call safe_open_MN(unit=u_IS(2),file=IS_Files(2),form='unformatted',access='sequential',status='replace')
+            write(u_IS(2))0,0,0
+            close(u_IS(2))
+            call safe_open_MN(unit=u_IS(1),file=IS_Files(1),form='unformatted',access='sequential',status='replace')
+            close(u_IS(1))
+            call safe_open_MN(unit=u_IS(3),file=IS_Files(3),form='unformatted',access='sequential',status='replace')
+            close(u_IS(3))
+          endif
+        endif
+      endif
     
-    		j=i
-		nend=i
+      j=i
+      nend=i
 		
-		nGen = nlive - j
-		nptPerProc = ceiling( dble(nGen) / dble(mpi_nthreads) )
-	endif
+      nGen = nlive - j
+      nptPerProc = ceiling( dble(nGen) / dble(mpi_nthreads) )
+    endif
 	
 #ifdef MPI
 	call MPI_BARRIER(MPI_COMM_WORLD,errcode)
@@ -636,7 +678,7 @@ contains
 
 !----------------------------------------------------------------------
   
-  subroutine clusteredNest(p,phyP,l,loglike,dumper,context)
+  subroutine clusteredNest(p,phyP,l,loglike,dumper,context, err_unit, out_unit)
   	
 	implicit none
 	
@@ -647,8 +689,10 @@ contains
 	double precision p(ndims,nlive+1) !live points
 	double precision phyP(totPar,nlive+1) !physical live points
 	double precision l(nlive+1) !log-likelihood
+  integer, intent(in), optional :: err_unit, out_unit
 	
 	
+	integer err_unit_, out_unit_
 	!work variables
 	
 	!misc
@@ -662,8 +706,8 @@ contains
 	logical eswitch,peswitch,cSwitch !whether to do ellipsoidal sampling or not
 	logical remFlag, acpt, flag, flag2
 	integer funit1, funit2 !file units
-	character(len=100) fName1, fName2 !file names
-	character(len=100) fmt,fmt1
+	character(len=FILENAME_LENGTH) fName1, fName2 !file names
+	character(len=FILENAME_LENGTH) fmt,fmt1
 	
 	!diagnostics for determining when to do eigen analysis
 	integer neVol
@@ -737,12 +781,18 @@ contains
 	INTERFACE
 		!the user dumper function
     		subroutine dumper(nSamples, nlive, nPar, physLive, posterior, paramConstr, maxLogLike, logZ, INSlogZ, logZerr, context_pass)
-			integer nSamples, nlive, nPar, context_pass
-			double precision, pointer :: physLive(:,:), posterior(:,:), paramConstr(:)
-			double precision maxLogLike, logZ, INSlogZ, logZerr
+			integer, intent(in) :: nSamples, nlive, nPar, context_pass
+			double precision, allocatable, intent(in) :: physLive(:,:), posterior(:,:), paramConstr(:)
+			double precision, intent(in)  :: maxLogLike, logZ, INSlogZ, logZerr
 		end subroutine dumper
 	end INTERFACE
 	
+  err_unit_ = error_unit
+  if (present(err_unit)) err_unit_ = err_unit
+
+  out_unit_ = output_unit
+  if (present(out_unit)) out_unit_ = out_unit
+
 	
 	allocate( eswitchff(maxCls), escount(maxCls), dmin(maxCls) )
 	allocate( evData(updInt,totPar+3) )
@@ -853,7 +903,7 @@ contains
 	
 		!set the prior volume
 		ic_vnow=0.d0
-      		ic_vnow(1)=1.d0
+    ic_vnow(1)=1.d0
 	
 		!no ellipsoidal sampling to start with
 		eswitch=.false.
@@ -880,7 +930,7 @@ contains
 			!read the resume file
 			funit1=u_resume
 	
-			open(unit=funit1,file=resumename,status='old')
+			call safe_open_MN(unit=funit1,file=resumename,status='old')
                 	  	
 			read(funit1,*)genLive
 			read(funit1,*)globff,numlike,ic_n,nlive
@@ -910,7 +960,7 @@ contains
 			eswitchff=0
 			
     			!read hypercube-live file
-			open(unit=u_live,file=livename,status='old')
+			call safe_open_MN(unit=u_live,file=livename,status='old')
 			i=0
 			do
       				i=i+1
@@ -918,8 +968,8 @@ contains
             			if(iostatus<0) then
             				i=i-1
                   			if(i<nlive) then
-                  				write(*,*)"ERROR: live points file has less than ",nlive," points."
-						write(*,*)"Aborting"
+                  				write(err_unit_,*)"ERROR: live points file has less than ",nlive," points."
+						write(err_unit_,*)"Aborting"
 #ifdef MPI
 						call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -928,8 +978,8 @@ contains
                   			exit
 				endif
 				if(i>nlive) then
-					write(*,*)"ERROR: live points file has greater than ",nlive," points."
-					write(*,*)"Aborting"
+					write(err_unit_,*)"ERROR: live points file has greater than ",nlive," points."
+					write(err_unit_,*)"Aborting"
 #ifdef MPI
 					call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -939,7 +989,7 @@ contains
 			close(u_live)
 			
     			!read physical-live file
-			open(unit=u_phys,file=physname,status='old')
+			call safe_open_MN(unit=u_phys,file=physname,status='old')
 			i=0
 			do
       				i=i+1
@@ -947,8 +997,8 @@ contains
             			if(iostatus<0) then
             				i=i-1
                   			if(i<nlive) then
-                  				write(*,*)"ERROR: phys live points file has less than ",nlive," points."
-						write(*,*)"Aborting"
+                  				write(err_unit_,*)"ERROR: phys live points file has less than ",nlive," points."
+						write(err_unit_,*)"Aborting"
 #ifdef MPI
 						call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -957,8 +1007,8 @@ contains
                   			exit
 				endif
 				if(i>nlive) then
-					write(*,*)"ERROR: phys live points file has greater than ",nlive," points."
-					write(*,*)"Aborting"
+					write(err_unit_,*)"ERROR: phys live points file has greater than ",nlive," points."
+					write(err_unit_,*)"Aborting"
 #ifdef MPI
 					call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -970,7 +1020,7 @@ contains
 			!read the IS files
 			if( IS ) then
 				!read all the points collected so far
-				open(unit=u_IS(2),file=IS_Files(2),form='unformatted',access='sequential',status='old')
+				call safe_open_MN(unit=u_IS(2),file=IS_Files(2),form='unformatted',access='sequential',status='old')
 				read(u_IS(2))j,IS_counter(2),k
 				call ExtendArrayIfRequired(IS_counter(1),j-IS_counter(1),IS_counter(3),IS_nstore,ndims+6,IS_allpts)
 				IS_counter(1) = j
@@ -984,8 +1034,8 @@ contains
 					
 					!end of file?
 					if(iostatus<0) then
-						write(*,*)"ERROR: Not enough points in ",IS_Files(2)
-						write(*,*)"Aborting"
+						write(err_unit_,*)"ERROR: Not enough points in ",IS_Files(2)
+						write(err_unit_,*)"Aborting"
 #ifdef MPI
 						call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -994,14 +1044,14 @@ contains
 				enddo
 				close(u_IS(2))
 				
-				open(unit=u_IS(1),file=IS_Files(1),form='unformatted',access='sequential',status='old')
+				call safe_open_MN(unit=u_IS(1),file=IS_Files(1),form='unformatted',access='sequential',status='old')
 				do i = 1, IS_counter(1)
 					read(u_IS(1),IOSTAT=iostatus)IS_allpts(i,1:ndims+1),IS_allpts(i,ndims+6)
 					
 					!end of file?
 					if(iostatus<0) then
-						write(*,*)"ERROR: Not enough points in ",IS_Files(1)
-						write(*,*)"Aborting"
+						write(err_unit_,*)"ERROR: Not enough points in ",IS_Files(1)
+						write(err_unit_,*)"Aborting"
 #ifdef MPI
 						call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -1011,14 +1061,14 @@ contains
 				close(u_IS(1))
 				
 				!read the iteration info
-				open(unit=u_IS(3),file=IS_Files(3),form='unformatted',access='sequential',status='old')
+				call safe_open_MN(unit=u_IS(3),file=IS_Files(3),form='unformatted',access='sequential',status='old')
 				do i = 1, IS_counter(5)
 					read(u_IS(3),IOSTAT=iostatus)IS_iterinfo(i,1),i1,i2,i3,i4
 					IS_iterinfo(i,2)=dble(i1); IS_iterinfo(i,3)=dble(i2); IS_iterinfo(i,4)=dble(i3); IS_iterinfo(i,5)=dble(i4)
 					!end of file?
 					if(iostatus<0) then
-						write(*,*)"ERROR: Not enough points in ",IS_Files(3)
-						write(*,*)"Aborting"
+						write(err_unit_,*)"ERROR: Not enough points in ",IS_Files(3)
+						write(err_unit_,*)"Aborting"
 #ifdef MPI
 						call MPI_ABORT(MPI_COMM_WORLD,errcode)
 #endif
@@ -1083,18 +1133,18 @@ contains
 			if(my_rank==0) then
                         
 				if(outfile) then
-	                        	!write the resume file
-	                        	funit1=u_resume
+          !write the resume file
+          funit1=u_resume
 					fName1=resumename
-	                        	write(fmt,'(a,i5,a)')  '(',totPar+1,'E28.18,i4)'
-					open(unit=funit1,file=fName1,form='formatted',status='replace')
+	       	write(fmt,'(a,i5,a)')  '(',totPar+1,'E28.18,i4)'
+					call safe_open_MN(unit=funit1,file=fName1,form='formatted',status='replace')
 					write(funit1,'(l2)').false.
 					write(funit1,'(4i12)')globff,numlike,ic_n,nlive
 					write(funit1,'(2E28.18)')gZ,ginfo
 					write(funit1,'(l2)')eswitch
-	            			!write branching info
-		            		do i=1,ic_n
-	            				write(funit1,'(i4)')ic_nBrnch(i)
+          !write branching info
+          do i=1,ic_n
+	          write(funit1,'(i4)')ic_nBrnch(i)
 						if(ic_nBrnch(i)>0) then
 							write(fmt,'(a,i5,a)')  '(',2*ic_nBrnch(i),'E28.18)'
 							write(funit1,fmt)ic_brnch(i,1:ic_nBrnch(i),1),ic_brnch(i,1:ic_nBrnch(i),2)
@@ -1106,7 +1156,7 @@ contains
 						write(funit1,'(3E28.18)')ic_vnow(i),ic_Z(i),ic_info(i)
 						if(ceff) write(funit1,'(1E28.18)')ic_eff(i,4)
 					enddo
-	                  		close(funit1)
+	        close(funit1)
 				endif
 				
 				if( IS ) then
@@ -1616,7 +1666,7 @@ contains
 			do i = 1, ic_n
 				IS_V(i) = 0d0
 				if( IS_GetVolInsidePrior ) then
-					do k = nd_i+1, nd_i+ic_sc(i)
+          do k = nd_i+1, nd_i+ic_sc(i)
 						j1 = max(5, int( ( dble(IS_nMC) * dble(ic_npt(i)) / dble(nlive) ) * ( dble(sc_vol(k)) / dble(totVol(i)) ) ))
 						m = 0
 						do i3 = 1, j1
@@ -2375,7 +2425,7 @@ contains
 						!write the evidence file
 						funit1=u_ev
 						fName1=evname
-						open(unit=funit1,file=fName1,form='formatted',status='old', position='append')
+						call safe_open_MN(unit=funit1,file=fName1,form='formatted',status='old', position='append')
 	    					write(fmt,'(a,i5,a)')  '(',totPar+2,'E28.18,i5)'	
 						do i=1,j1
 	    						write(funit1,fmt) evData(i,1:totPar+2),int(evData(i,totPar+3))
@@ -2388,8 +2438,8 @@ contains
 						fName1=physname
 						funit2=u_live
 						fName2=livename
-						open(unit=funit1,file=fName1,form='formatted',status='replace')
-						open(unit=funit2,file=fName2,form='formatted',status='replace')
+						call safe_open_MN(unit=funit1,file=fName1,form='formatted',status='replace')
+						call safe_open_MN(unit=funit2,file=fName2,form='formatted',status='replace')
 	                		
 						write(fmt,'(a,i5,a)')  '(',totPar+1,'E28.18,i4)'
 	                			write(fmt1,'(a,i5,a)')  '(',ndims+1,'E28.18)'
@@ -2410,7 +2460,7 @@ contains
 	                  			!write the resume file
 						funit1=u_resume
 						fName1=resumename
-						open(unit=funit1,file=fName1,form='formatted',status='replace')
+						call safe_open_MN(unit=funit1,file=fName1,form='formatted',status='replace')
 	                	  	
 						write(funit1,'(l2)')genLive
 						write(funit1,'(4i12)')globff,numlike,ic_n,nlive
@@ -2438,7 +2488,7 @@ contains
 						!write the IS files
 						if( IS ) then
 							!write all the points collected so far
-							open(unit=u_IS(1), file=IS_Files(1), form='unformatted', access='sequential', status='old', position='append')
+							call safe_open_MN(unit=u_IS(1), file=IS_Files(1), form='unformatted', access='sequential', status='old', position='append')
 							do i = IS_counter(7)+1, IS_counter(1)
 								write(u_IS(1))IS_allpts(i,1:ndims+1),int(IS_allpts(i,ndims+6))
 							enddo
@@ -2446,7 +2496,7 @@ contains
 							close(u_IS(1))
 							
 							!write all the points collected so far
-							open(unit=u_IS(2), file=IS_Files(2), form='unformatted', access='sequential', status='replace')
+							call safe_open_MN(unit=u_IS(2), file=IS_Files(2), form='unformatted', access='sequential', status='replace')
 							write(u_IS(2))IS_counter(1:2),IS_counter(5)
 							do i = 1, IS_counter(1)
 								write(u_IS(2))IS_allpts(i,ndims+2),int(IS_allpts(i,ndims+3))
@@ -2454,7 +2504,7 @@ contains
 							close(u_IS(2))
 							
 							!write the iteration info
-							open(unit=u_IS(3), file=IS_Files(3), form='unformatted', access='sequential',status='old', position='append')
+							call safe_open_MN(unit=u_IS(3), file=IS_Files(3), form='unformatted', access='sequential',status='old', position='append')
 							do i = IS_counter(6)+1, IS_counter(5)
 								write(u_IS(3))IS_iterinfo(i,1),int(IS_iterinfo(i,2:5))
 							enddo
@@ -2488,11 +2538,11 @@ contains
 							do j = 1, ndims
 								if( ic_sigma(i,j) <= 0.05 .and. ( ic_sigma(i,j) <= 0.05 .or. ic_sigma(i,j) >= 0.95 ) ) then
 									if( .not. flag ) then
-										write(*,*)
-										write(*,*)"MultiNest Warning!"
+										write(out_unit_,*)
+										write(out_unit_,*)"MultiNest Warning!"
 										flag = .true.
 									endif
-									write(*,*)"Parameter ", j, " of mode ", i, " is converging towards the edge of the prior."
+									write(out_unit_,*)"Parameter ", j, " of mode ", i, " is converging towards the edge of the prior."
 								endif
 							enddo
 						enddo
@@ -2684,50 +2734,50 @@ contains
 	
 	implicit none
 	double precision lnew
-    	double precision pnew(ndims),spnew(ndims),phyPnew(totPar),ekfac
-    	double precision mean(ndims),TMat(ndims,ndims)
+  double precision pnew(ndims),spnew(ndims),phyPnew(totPar),ekfac
+  double precision mean(ndims),TMat(ndims,ndims)
 	double precision limits(ndims,2)
 	double precision lowlike	!likelihood threshold
 	integer n			!no. of points drawn
-    	logical eswitch
-    	integer id,i,context
+  logical eswitch
+  integer id,i,context
     
-    	INTERFACE
-    		!the likelihood function
-    		subroutine loglike(Cube,n_dim,nPar,lnew,context_pass)
-			integer n_dim,nPar,context_pass
-			double precision lnew,Cube(nPar)
-		end subroutine loglike
-    	end INTERFACE
+  INTERFACE
+    !the likelihood function
+    subroutine loglike(Cube,n_dim,nPar,lnew,context_pass)
+      integer n_dim,nPar,context_pass
+      double precision lnew,Cube(nPar)
+    end subroutine loglike
+  end INTERFACE
     	
 	
 	n = 0
-    	id = my_rank
+  id = my_rank
     	
 	do
 		n = n+1
 		
-	    	if(.not.eswitch) then
-			!generate a random point inside unit hypercube
-			call getrandom(ndims,pnew(1:ndims),id)
-			phyPnew(1:ndims)=pnew(1:ndims)
-			lnew=lowlike
-	    		call loglike(phyPnew,ndims,totPar,lnew,context)
-	    	else
+	  if (.not. eswitch) then
+		  !generate a random point inside unit hypercube
+			call getrandom(ndims, pnew(1:ndims), id)
+			phyPnew(1:ndims) = pnew(1:ndims)
+			lnew = lowlike
+	    call loglike(phyPnew, ndims, totPar, lnew, context)
+	  else
 			!generate a point uniformly inside the given ellipsoid
-			call genPtInEll(ndims,mean,ekfac,TMat,id,pnew(1:ndims))
-			spnew(:)=limits(:,1)+(limits(:,2)-limits(:,1))*pnew(:)
-			do i=1,ndims
-				if(pWrap(i)) then
-					call wraparound(spnew(i),spnew(i))
+			call genPtInEll(ndims, mean, ekfac, TMat, id, pnew(1:ndims))
+			spnew(:) = limits(:,1) + (limits(:,2)-limits(:,1)) * pnew(:)
+			do i=1, ndims
+			  if (pWrap(i)) then
+				  call wraparound(spnew(i),spnew(i))
 				endif
 			enddo
-			if(.not.inprior(ndims,spnew(1:ndims))) cycle
-			phyPnew(1:ndims)=spnew(1:ndims)
-			lnew=lowlike
-	    		call loglike(phyPnew,ndims,totPar,lnew,context)
-	      	endif
-		if(lnew>logZero) exit
+			if (.not. inprior(ndims, spnew(1:ndims))) cycle
+			phyPnew(1:ndims) = spnew(1:ndims)
+			lnew = lowlike
+	    call loglike(phyPnew,ndims,totPar,lnew,context)
+	    endif
+		if (lnew > logZero) exit
 	enddo
         
   end subroutine samp
@@ -2790,7 +2840,7 @@ contains
 !----------------------------------------------------------------------
    
    !provide fback to the user
-  subroutine gfeedback(logZ,IS,IS_Z,nlike,nacc,dswitch)
+  subroutine gfeedback(logZ,IS,IS_Z,nlike,nacc,dswitch, err_unit, out_unit)
     
 	implicit none
     	!input variables
@@ -2800,13 +2850,22 @@ contains
     	integer nlike !no. of likelihood evaluations
     	integer nacc !no. of accepted samples
 	logical dswitch !dynamic live points
+  integer, intent(in), optional :: err_unit, out_unit
+
+	integer err_unit_, out_unit_
     
-    	write(*,'(a,F14.6)')	     'Acceptance Rate:                  ',dble(nacc)/dble(nlike)
-	write(*,'(a,i14)')   	     'Replacements:                     ',nacc
-	write(*,'(a,i14)')   	     'Total Samples:                    ',nlike
-	write(*,'(a,F14.6)')	     'Nested Sampling ln(Z):            ',logZ
-	if( IS ) write(*,'(a,F14.6,a,F10.6)')'Importance Nested Sampling ln(Z): ',IS_Z(1), ' +/-', IS_Z(2)
-	if(dswitch) write(*,'(a,i5)')'Total No. of Live Points:         ',nlive
+  err_unit_ = error_unit
+  if (present(err_unit)) err_unit_ = err_unit
+
+  out_unit_ = output_unit
+  if (present(out_unit)) out_unit_ = out_unit
+
+    	write(out_unit_,'(a,F14.6)')	     'Acceptance Rate:                  ',dble(nacc)/dble(nlike)
+	write(out_unit_,'(a,i14)')   	     'Replacements:                     ',nacc
+	write(out_unit_,'(a,i14)')   	     'Total Samples:                    ',nlike
+	write(out_unit_,'(a,F14.6)')	     'Nested Sampling ln(Z):            ',logZ
+	if( IS ) write(out_unit_,'(a,F14.6,a,F10.6)')'Importance Nested Sampling ln(Z): ',IS_Z(1), ' +/-', IS_Z(2)
+	if(dswitch) write(out_unit_,'(a,i5)')'Total No. of Live Points:         ',nlive
     
   end subroutine gfeedback
   
