@@ -6,11 +6,56 @@ module utils1
   implicit none
   
   	integer lwork,liwork
+  	!$OMP THREADPRIVATE(lwork,liwork)
   	data lwork,liwork /1,1/
       logical setBlk
+      !$OMP THREADPRIVATE(setBlk)
       data setBlk /.false./
 
 contains
+
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  subroutine safe_open_MN(unit, file, form, status, position, access)
+
+    integer, intent(out)                  :: unit
+    character(len=*), intent(in)            :: file
+    character(len=*), intent(in), optional  :: form
+    character(len=*), intent(in), optional  :: status
+    character(len=*), intent(in), optional  :: position
+    character(len=*), intent(in), optional  :: access
+
+    character(len=:), allocatable  :: form_
+    character(len=:), allocatable  :: status_
+    character(len=:), allocatable  :: position_
+    character(len=:), allocatable  :: access_
+
+    logical :: is_open
+
+    form_ = 'unformatted'
+    if (present(form)) form_ = form
+
+    status_ = 'unknown'
+    if (present(status)) status_ = status
+
+    position_ = 'append'
+    if (present(position)) position_ = position
+
+    access_ = 'sequential'
+    if (present(access)) access_ = access
+
+
+    inquire(file=file, opened=is_open)
+
+    if (is_open) then
+      inquire(file=file, number=unit)
+    else
+      open (newunit=unit, file=file, form=form_, status=status_, access=access_, position=position_)
+    endif
+
+  end subroutine safe_open_MN
+
 
 !---------------------------------------------------------------------- 
   

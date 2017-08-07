@@ -6,17 +6,24 @@ module xmeans_clstr
   implicit none
   
       integer n_dim
+      !$OMP THREADPRIVATE(n_dim)
       double precision LogTwoPi
       parameter(LogTwoPi=1.83787706641)
       double precision larg
       parameter(larg=huge(1.d0))
       !information about ellipses at each node
       integer numClstr,nCls,ptClstrd,maxClstr !total clusters found yet & total pts in clstrs yet
+      !$OMP THREADPRIVATE(numClstr,nCls,ptClstrd,maxClstr )
       double precision, dimension(:,:), allocatable :: p,xclsMean,xclsEval,aux
+      !$OMP THREADPRIVATE(p,xclsMean,xclsEval,aux)
       double precision, dimension(:), allocatable :: xclsBIC,loglike,xclsVar,xclsVol,xclsKfac,xclsEff,xclsDetcov
+      !$OMP THREADPRIVATE(xclsBIC,loglike,xclsVar,xclsVol,xclsKfac,xclsEff,xclsDetcov)
       double precision, dimension(:,:,:), allocatable :: xclsInvCov,xclsTMat,xclsCovmat,xclsEvec
+      !$OMP THREADPRIVATE(xclsInvCov,xclsTMat,xclsCovmat,xclsEvec)
       integer, dimension(:), allocatable :: revcPos,xclsPos,ptInClstr
+      !$OMP THREADPRIVATE(revcPos,xclsPos,ptInClstr)
       integer, dimension(:,:), allocatable :: pt_Clstr
+      !$OMP THREADPRIVATE(pt_Clstr)
 
  contains
  

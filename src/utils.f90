@@ -1,9 +1,14 @@
  module RandomNS
  integer :: rand_instNS = 0
+ !$OMP THREADPRIVATE(rand_instNS)
  double precision, dimension(:), allocatable :: C, CD, CM, GSET
+ !$OMP THREADPRIVATE(C, CD, CM, GSET)
  double precision, dimension(:,:), allocatable :: U
+ !$OMP THREADPRIVATE(U)
  integer, dimension(:), allocatable :: I97, J97, ISET
+ !$OMP THREADPRIVATE(I97, J97, ISET)
  integer numNodes
+ !$OMP THREADPRIVATE(numNodes)
 
  contains
    
